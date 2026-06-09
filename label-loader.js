@@ -357,6 +357,78 @@
   // ─── SOUMISSION ──────────────────────────────────────────────────────
   // Les réponses sont POSTées au webhook Make. Make calcule le scoring,
   // déclenche le workflow HubSpot qui envoie le rapport par email.
+  // Nettoie les champs des blocs conditionnels inactifs avant l'envoi du formulaire.
+  // Reprend exactement la logique de refreshConditionals() : si la condition d'affichage
+  // d'un bloc est fausse, tous les champs qu'il contient sont remis a vide (les nombres
+  // seront ensuite forces a 0). Empeche qu'une valeur saisie puis masquee, ou une valeur
+  // d'exemple, ne parte dans le payload alors que l'avantage n'est pas selectionne.
+  // L'ordre est identique a refreshConditionals() => parents avant enfants, le nettoyage
+  // se propage en cascade (ex : ifc=non -> vide ifc_forme -> vide les montants ifc_*).
+  function sanitizeConditionalFields(reponses) {
+    var C = function (id) { return reponses[id] === true; };   // case cochee
+    var R = function (name) { return reponses[name]; };         // valeur du radio
+
+    var guards = [
+      ['cond_tr', function () { return C('c_tr'); }],
+      ['cond_cantine', function () { return C('c_cantine'); }],
+      ['cond_resto_autres', function () { return C('c_resto_autres'); }],
+      ['cond_tc', function () { return C('c_tc'); }],
+      ['cond_fmd', function () { return C('c_fmd'); }],
+      ['cond_prime_tr', function () { return C('c_prime_tr'); }],
+      ['cond_mob_autres', function () { return C('c_mob_autres'); }],
+      ['cond_log_autres', function () { return C('c_log_autres'); }],
+      ['cond_mut', function () { return R('mut') === 'oui'; }],
+      ['cond_sm_autres', function () { return C('c_sm_autres'); }],
+      ['cond_per_autres', function () { return C('c_per_autres'); }],
+      ['cond_abond', function () { return R('abond') === 'oui'; }],
+      ['cond_int', function () { return R('int') === 'oui'; }],
+      ['cond_part', function () { return R('part') === 'oui'; }],
+      ['cond_ppv', function () { return R('ppv') === 'oui'; }],
+      ['cond_prime_autres', function () { return C('c_prime_autres'); }],
+      ['cond_ifc_forme', function () { return R('ifc') === 'oui'; }],
+      ['cond_ifc_pct', function () { return R('ifc_forme') === 'pct'; }],
+      ['cond_ifc_forfvar', function () { return R('ifc_forme') === 'forfvar'; }],
+      ['cond_ifc_forfid', function () { return R('ifc_forme') === 'forfid'; }],
+      ['cond_act_autres', function () { return C('c_act_autres'); }],
+      ['cond_bef_autres', function () { return C('c_bef_autres'); }],
+      ['cond_tt_indem_base', function () { return R('tt_indem') === 'oui'; }],
+      ['cond_tt_indem_forfait', function () { return R('tt_indem_base') === 'forfait'; }],
+      ['cond_flex_autres', function () { return C('c_flex_autres'); }],
+      ['cond_conges_nb', function () { return R('conges') === 'supp'; }],
+      ['cond_cet_usage', function () { return R('cet') === 'oui'; }],
+      ['cond_cet_autres', function () { return C('c_cet_autres'); }],
+      ['cond_mat', function () { return R('mat') === 'oui'; }],
+      ['cond_sp', function () { return R('sp') === 'oui'; }],
+      ['cond_par_autre', function () { return C('c_par_autre'); }],
+      ['cond_cesu', function () { return C('c_cesu'); }],
+      ['cond_sap_aide', function () { return C('c_sap_aide'); }],
+      ['cond_cadeaux', function () { return R('cadeaux') === 'oui'; }],
+      ['cond_cult_cheques', function () { return C('c_cult_cheques'); }],
+      ['cond_cult_autres', function () { return C('c_cult_autres'); }],
+      ['cond_sport_alloc', function () { return C('c_sport_alloc'); }],
+      ['cond_sport_autres', function () { return C('c_sport_autres'); }],
+      ['cond_vac_ancv', function () { return C('c_vac_ancv'); }],
+      ['cond_vac_aide', function () { return C('c_vac_aide'); }],
+      ['cond_vac_autres', function () { return C('c_vac_autres'); }],
+      ['cond_enq_niveau', function () { return R('enq') === 'reg' || R('enq') === 'ponct'; }],
+      ['cond_strat_autres', function () { return C('c_strat_autres'); }],
+      ['cond_prio_autre', function () { return C('c_prio_autre'); }],
+      ['cond_prix', function () { return R('prix') === 'oui'; }]
+    ];
+
+    guards.forEach(function (g) {
+      var condId = g[0], isActive = g[1];
+      if (isActive()) { return; }
+      var block = document.getElementById(condId);
+      if (!block) { return; }
+      block.querySelectorAll('input, select, textarea').forEach(function (f) {
+        if (f.type === 'checkbox') { if (f.id) { reponses[f.id] = false; } }
+        else if (f.type === 'radio') { if (f.name) { reponses[f.name] = ''; } }
+        else if (f.id) { reponses[f.id] = ''; }
+      });
+    });
+  }
+
   function buildPayload() {
     const state = snapshotFormState();
     const reponses = {};
@@ -364,6 +436,9 @@
     Object.entries(state.checkboxes).forEach(([id, v]) => { reponses[id] = v; });
     Object.entries(state.radios).forEach(([name, v]) => { reponses[name] = v; });
     
+    // Nettoyage des blocs conditionnels inactifs (champs masques) AVANT le forcage a 0.
+    sanitizeConditionalFields(reponses);
+
     // Anti valeur d'exemple : un champ nombre laisse vide ne transmet jamais de valeur, on force 0.
     document.querySelectorAll('.form-card input[type="number"]').forEach(function (el) {
       if (el.id && (reponses[el.id] === undefined || String(reponses[el.id]).trim() === '')) { reponses[el.id] = '0'; }
