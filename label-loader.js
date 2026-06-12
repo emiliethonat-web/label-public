@@ -103,7 +103,23 @@
       });
     });
   }
-  function show(id, on) { const el = $(id); if (el) el.classList.toggle('show', !!on); }
+  function show(id, on) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('show', !!on);
+    if (!on) {
+      // Bloc masqué (ex. on recoche "Non") -> on vide les inputs conditionnels
+      el.querySelectorAll('input, textarea, select').forEach(function (field) {
+        if (field.type === 'checkbox' || field.type === 'radio') {
+          if (field.checked) field.checked = false;
+          const wrap = field.closest('.check-item, .radio-item');
+          if (wrap) wrap.classList.remove('selected');
+        } else if (field.value) {
+          field.value = '';
+        }
+      });
+    }
+  }
   function refreshConditionals() {
     // Step 2 — Mieux vivre
     show('cond_tr', isChecked('c_tr'));
