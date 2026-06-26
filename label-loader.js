@@ -314,6 +314,7 @@
   const cfg = window.WL_CONFIG || {};
   const MAKE_SIRET_CHECK_URL = cfg.MAKE_SIRET_CHECK_URL || 'https://hook.eu1.make.com/VOTRE_SIRET_CHECK_WEBHOOK';
   const MAKE_SUBMIT_URL      = cfg.MAKE_SUBMIT_URL      || 'https://hook.eu1.make.com/VOTRE_SUBMIT_WEBHOOK';
+  const MAKE_RELANCE_URL     = cfg.MAKE_RELANCE_URL     || 'https://hook.eu1.make.com/w9ca54ng39rkhe1uy8u82227iu74ki6s';
   function nextStep(){
     if (currentStep === 1 && !validateStep1()) return;
     // Check SIREN asynchrone : vérifie qu'aucune candidature déjà cette année
@@ -321,7 +322,7 @@
       // Relance candidature abandonnée — envoi des infos de l'étape 1 (fire & forget)
       (function(){
         var _gv = function(id){ return ($(id) && $(id).value) || ''; };
-        fetch('https://hook.eu1.make.com/w9ca54ng39rkhe1uy8u82227iu74ki6s', {
+        fetch(MAKE_RELANCE_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
